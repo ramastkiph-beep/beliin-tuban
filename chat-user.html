@@ -1,0 +1,434 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Chat Order — Nitip Tuban</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="supabase.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;800&display=swap');
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --teal: #2ABFB3; --teal-d: #0a7a72; --teal-p: #E0F7F5;
+    --ink: #0f1923; --muted: #6b7a8a; --border: #e2e8f0;
+    --bg: #f0fafa; --bubble-me: #0a7a72; --bubble-other: #fff;
+    --r: 14px;
+  }
+
+  body { font-family: 'Plus Jakarta Sans', sans-serif; background: var(--bg); height: 100dvh; display: flex; flex-direction: column; overflow: hidden; }
+
+  /* ── HEADER ── */
+  .header {
+    background: #fff;
+    border-bottom: 1px solid var(--border);
+    padding: 0 16px;
+    height: 60px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-shrink: 0;
+  }
+
+  .back-btn {
+    width: 32px; height: 32px;
+    background: none; border: none; cursor: pointer;
+    color: var(--muted); display: flex; align-items: center; justify-content: center;
+    border-radius: 8px; transition: background .15s;
+  }
+  .back-btn:hover { background: var(--teal-p); }
+
+  .order-info { flex: 1; }
+  .order-id { font-size: 13px; font-weight: 800; color: var(--ink); }
+  .order-layanan { font-size: 12px; color: var(--muted); }
+
+  .status-badge {
+    padding: 4px 10px; border-radius: 20px;
+    font-size: 11px; font-weight: 700;
+    background: var(--teal-p); color: var(--teal-d);
+  }
+
+  /* ── ORDER CARD (collapsible) ── */
+  .order-card {
+    background: #fff;
+    border-bottom: 1px solid var(--border);
+    padding: 12px 16px;
+    flex-shrink: 0;
+    font-size: 13px;
+    color: var(--muted);
+  }
+
+  .order-card-row { display: flex; justify-content: space-between; align-items: center; margin-bottom: 2px; }
+  .order-card-row strong { color: var(--ink); }
+
+  /* ── SECURITY BANNER ── */
+  .sec-banner {
+    background: linear-gradient(90deg, #E0F7F5, #f0fdf4);
+    border-bottom: 1px solid #a7f3d0;
+    padding: 8px 16px;
+    font-size: 12px;
+    color: var(--teal-d);
+    display: flex;
+    align-items: center;
+    gap: 6px;
+    flex-shrink: 0;
+  }
+
+  /* ── MESSAGE AREA ── */
+  .messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+    scroll-behavior: smooth;
+  }
+
+  .msg-group { display: flex; flex-direction: column; gap: 2px; }
+  .msg-group.me { align-items: flex-end; }
+  .msg-group.other { align-items: flex-start; }
+  .msg-group.system { align-items: center; }
+
+  .msg-sender {
+    font-size: 11px; font-weight: 700;
+    color: var(--muted); margin-bottom: 3px;
+    padding: 0 4px;
+  }
+
+  .bubble {
+    max-width: 72%;
+    padding: 10px 14px;
+    border-radius: 16px;
+    font-size: 14px;
+    line-height: 1.5;
+    word-break: break-word;
+  }
+
+  .me .bubble {
+    background: var(--bubble-me);
+    color: #fff;
+    border-bottom-right-radius: 4px;
+  }
+
+  .other .bubble {
+    background: var(--bubble-other);
+    color: var(--ink);
+    border: 1px solid var(--border);
+    border-bottom-left-radius: 4px;
+  }
+
+  .system .bubble {
+    background: #fffbeb;
+    color: #92400e;
+    border: 1px solid #fde68a;
+    border-radius: 10px;
+    font-size: 12px;
+    max-width: 90%;
+    text-align: center;
+    padding: 7px 14px;
+  }
+
+  .bubble.flagged { border-left: 3px solid #f59e0b !important; }
+
+  .kurir-bubble { background: #f0fdf4 !important; border-color: #a7f3d0 !important; }
+  .admin-bubble { background: #fef3c7 !important; border-color: #fde68a !important; }
+
+  .msg-time {
+    font-size: 10px;
+    color: var(--muted);
+    margin-top: 2px;
+    padding: 0 4px;
+  }
+
+  .empty-state {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    color: var(--muted);
+    font-size: 14px;
+    gap: 8px;
+    text-align: center;
+  }
+  .empty-state .big { font-size: 36px; }
+
+  /* ── INPUT AREA ── */
+  .input-area {
+    background: #fff;
+    border-top: 1px solid var(--border);
+    padding: 12px 16px;
+    display: flex;
+    align-items: flex-end;
+    gap: 10px;
+    flex-shrink: 0;
+  }
+
+  .msg-input {
+    flex: 1;
+    min-height: 42px;
+    max-height: 120px;
+    padding: 10px 14px;
+    border: 1.5px solid var(--border);
+    border-radius: 12px;
+    font-family: inherit;
+    font-size: 14px;
+    resize: none;
+    outline: none;
+    line-height: 1.4;
+    transition: border-color .15s;
+    overflow-y: auto;
+  }
+
+  .msg-input:focus { border-color: var(--teal); }
+
+  .send-btn {
+    width: 42px; height: 42px;
+    background: var(--teal-d);
+    border: none;
+    border-radius: 12px;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    transition: background .15s, transform .1s;
+  }
+
+  .send-btn:hover { background: var(--teal); }
+  .send-btn:active { transform: scale(.94); }
+  .send-btn svg { width: 18px; height: 18px; fill: #fff; }
+
+  .typing-hint {
+    font-size: 11px;
+    color: var(--muted);
+    padding: 0 16px 6px;
+    flex-shrink: 0;
+  }
+
+  /* ── LOADING ── */
+  .loader { text-align: center; color: var(--muted); font-size: 13px; padding: 20px; }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .spin { display: inline-block; animation: spin 1s linear infinite; }
+</style>
+</head>
+<body>
+
+<!-- HEADER -->
+<div class="header">
+  <button class="back-btn" onclick="location.href='index.html'">
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor"><path d="M20 11H7.83l5.59-5.59L12 4l-8 8 8 8 1.41-1.41L7.83 13H20v-2z"/></svg>
+  </button>
+  <div class="order-info">
+    <div class="order-id" id="hdr-order-id">Memuat order…</div>
+    <div class="order-layanan" id="hdr-layanan">—</div>
+  </div>
+  <span class="status-badge" id="hdr-status">—</span>
+</div>
+
+<!-- ORDER DETAIL CARD -->
+<div class="order-card" id="order-card">
+  <div class="loader"><span class="spin">⟳</span> Memuat detail order…</div>
+</div>
+
+<!-- SECURITY NOTICE -->
+<div class="sec-banner">
+  <svg width="14" height="14" viewBox="0 0 24 24" fill="currentColor"><path d="M12 1L3 5v6c0 5.55 3.84 10.74 9 12 5.16-1.26 9-6.45 9-12V5l-9-4z"/></svg>
+  Nomor HP dan kontak pribadi secara otomatis disembunyikan di chat ini
+</div>
+
+<!-- MESSAGES -->
+<div class="messages" id="messages">
+  <div class="loader"><span class="spin">⟳</span> Memuat pesan…</div>
+</div>
+
+<!-- TYPING HINT -->
+<div class="typing-hint" id="typing-hint"></div>
+
+<!-- INPUT -->
+<div class="input-area">
+  <textarea class="msg-input" id="msg-input" placeholder="Ketik pesan…" rows="1"
+    onkeydown="handleKey(event)" oninput="autoResize(this)"></textarea>
+  <button class="send-btn" onclick="sendMsg()">
+    <svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+  </button>
+</div>
+
+<script>
+let _orderId = null;
+let _profile = null;
+let _sub     = null;
+let _lastSender = null;
+
+const urlParams = new URLSearchParams(location.search);
+_orderId = urlParams.get('order');
+
+async function init() {
+  if (!_orderId) { location.href = 'index.html'; return; }
+
+  const session = await getSession();
+  if (!session) { location.href = 'index.html'; return; }
+
+  _profile = await getProfile(session.user.id);
+  if (!_profile) {
+    // Create profile for anonymous user
+    const name = localStorage.getItem('nt_name') || 'Pengguna';
+    await _sb.from('profiles').upsert({ id: session.user.id, role: 'user', name });
+    _profile = { id: session.user.id, role: 'user', name };
+  }
+
+  await loadOrder();
+  await loadMessages();
+  subscribeNew();
+}
+
+async function loadOrder() {
+  const order = await fetchOrder(_orderId);
+  if (!order) {
+    document.getElementById('order-card').innerHTML = '<div style="color:#ef4444;font-size:13px">Order tidak ditemukan.</div>';
+    return;
+  }
+
+  const badge = statusBadge(order.status);
+  document.getElementById('hdr-order-id').textContent = `Order #${shortId(order.id)}`;
+  document.getElementById('hdr-layanan').textContent = order.layanan;
+  document.getElementById('hdr-status').textContent = badge.label;
+  document.getElementById('hdr-status').style.background = badge.color + '22';
+  document.getElementById('hdr-status').style.color = badge.color;
+
+  document.getElementById('order-card').innerHTML = `
+    <div class="order-card-row">
+      <span>Layanan</span>
+      <strong>${order.layanan}</strong>
+    </div>
+    <div class="order-card-row">
+      <span>Detail</span>
+      <strong>${order.detail ?? '—'}</strong>
+    </div>
+    <div class="order-card-row">
+      <span>Status</span>
+      <strong style="color:${badge.color}">${badge.label}</strong>
+    </div>
+    <div class="order-card-row" style="margin-top:4px;font-size:11px;color:var(--muted)">
+      <span>ID Order</span>
+      <span>${order.id}</span>
+    </div>
+  `;
+}
+
+async function loadMessages() {
+  const msgs = await fetchMessages(_orderId);
+  const container = document.getElementById('messages');
+
+  if (!msgs.length) {
+    container.innerHTML = `
+      <div class="empty-state">
+        <div class="big">💬</div>
+        <div>Belum ada pesan.</div>
+        <div style="font-size:12px">Kirim pesan pertama ke kurir atau admin.</div>
+      </div>`;
+    return;
+  }
+
+  container.innerHTML = '';
+  _lastSender = null;
+  msgs.forEach(m => appendMessage(m));
+  scrollBottom();
+}
+
+function appendMessage(msg) {
+  const container = document.getElementById('messages');
+
+  // Remove empty state if present
+  const es = container.querySelector('.empty-state, .loader');
+  if (es) es.remove();
+
+  const isMe = msg.sender_id === _profile?.id;
+  const isSystem = msg.role === 'system';
+
+  const groupClass = isSystem ? 'system' : isMe ? 'me' : 'other';
+  const showSender = !isMe && !isSystem && msg.sender_id !== _lastSender;
+  _lastSender = msg.sender_id;
+
+  const senderName = msg.profiles?.name ?? (msg.role === 'kurir' ? '🛵 Kurir' : msg.role === 'admin' ? '⚙️ Admin' : 'User');
+
+  let bubbleClass = 'bubble';
+  if (msg.is_flagged) bubbleClass += ' flagged';
+  if (msg.role === 'kurir') bubbleClass += ' kurir-bubble';
+  if (msg.role === 'admin') bubbleClass += ' admin-bubble';
+
+  const group = document.createElement('div');
+  group.className = `msg-group ${groupClass}`;
+  group.dataset.msgId = msg.id;
+
+  group.innerHTML = `
+    ${showSender ? `<div class="msg-sender">${senderName}</div>` : ''}
+    <div class="${bubbleClass}">${escHtml(msg.content)}</div>
+    <div class="msg-time">${formatTime(msg.created_at)}</div>
+  `;
+
+  container.appendChild(group);
+  scrollBottom();
+}
+
+function subscribeNew() {
+  _sub = subscribeMessages(_orderId, (msg) => {
+    // Avoid duplicate if we already added it optimistically
+    if (document.querySelector(`[data-msg-id="${msg.id}"]`)) return;
+    appendMessage(msg);
+  });
+}
+
+async function sendMsg() {
+  const input = document.getElementById('msg-input');
+  const text = input.value.trim();
+  if (!text || !_profile) return;
+
+  input.value = '';
+  autoResize(input);
+
+  try {
+    await sendMessage(_orderId, _profile.id, _profile.role, text);
+  } catch(e) {
+    console.error(e);
+    showTypingHint('⚠️ Gagal kirim pesan. Coba lagi.');
+    setTimeout(() => showTypingHint(''), 3000);
+  }
+}
+
+function handleKey(e) {
+  if (e.key === 'Enter' && !e.shiftKey) {
+    e.preventDefault();
+    sendMsg();
+  }
+}
+
+function autoResize(el) {
+  el.style.height = 'auto';
+  el.style.height = Math.min(el.scrollHeight, 120) + 'px';
+}
+
+function scrollBottom() {
+  const c = document.getElementById('messages');
+  c.scrollTop = c.scrollHeight;
+}
+
+function showTypingHint(msg) {
+  document.getElementById('typing-hint').textContent = msg;
+}
+
+function escHtml(str) {
+  return str
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/\n/g, '<br>');
+}
+
+init();
+</script>
+</body>
+</html>

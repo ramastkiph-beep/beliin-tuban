@@ -1,0 +1,609 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Admin Dashboard — Nitip Tuban</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="supabase.js"></script>
+<style>
+  @import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;600;800&display=swap');
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+  :root {
+    --teal: #2ABFB3; --teal-d: #0a7a72; --teal-p: #E0F7F5;
+    --ink: #0f1923; --muted: #6b7a8a; --border: #e2e8f0; --bg: #f8f9fa;
+    --red: #ef4444; --green: #22c55e; --amber: #f59e0b;
+  }
+
+  body { font-family: 'Plus Jakarta Sans', sans-serif; background: var(--bg); height: 100dvh; display: flex; flex-direction: column; overflow: hidden; }
+
+  /* ── TOP BAR ── */
+  .topbar {
+    background: var(--teal-d);
+    color: #fff;
+    padding: 0 24px;
+    height: 56px;
+    display: flex;
+    align-items: center;
+    gap: 14px;
+    flex-shrink: 0;
+  }
+
+  .topbar-logo { font-size: 17px; font-weight: 800; flex: 1; }
+  .topbar-logo span { opacity: .65; font-weight: 400; font-size: 13px; margin-left: 6px; }
+
+  .topbar-stat {
+    background: rgba(255,255,255,.15);
+    border-radius: 8px;
+    padding: 5px 14px;
+    font-size: 13px;
+    font-weight: 600;
+  }
+
+  .topbar-logout {
+    background: rgba(255,255,255,.12);
+    border: 1px solid rgba(255,255,255,.2);
+    color: #fff;
+    padding: 6px 14px;
+    border-radius: 8px;
+    font-size: 13px;
+    cursor: pointer;
+    font-family: inherit;
+    transition: background .15s;
+  }
+  .topbar-logout:hover { background: rgba(255,255,255,.22); }
+
+  /* ── LAYOUT ── */
+  .layout { flex: 1; display: flex; overflow: hidden; }
+
+  /* ── LEFT: Order list ── */
+  .sidebar {
+    width: 340px;
+    flex-shrink: 0;
+    background: #fff;
+    border-right: 1px solid var(--border);
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .sidebar-head {
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--border);
+    display: flex;
+    align-items: center;
+    gap: 8px;
+  }
+
+  .sidebar-title { font-size: 14px; font-weight: 800; color: var(--ink); flex: 1; }
+
+  .filter-tabs {
+    display: flex;
+    gap: 0;
+    background: #f1f5f9;
+    border-radius: 8px;
+    padding: 3px;
+  }
+
+  .ftab {
+    padding: 5px 12px;
+    border-radius: 6px;
+    border: none;
+    background: none;
+    font-size: 12px;
+    font-weight: 700;
+    cursor: pointer;
+    color: var(--muted);
+    font-family: inherit;
+    transition: all .15s;
+  }
+  .ftab.active { background: #fff; color: var(--ink); box-shadow: 0 1px 4px rgba(0,0,0,.08); }
+
+  .order-list { flex: 1; overflow-y: auto; }
+
+  .order-item {
+    padding: 14px 16px;
+    border-bottom: 1px solid var(--border);
+    cursor: pointer;
+    transition: background .15s;
+  }
+  .order-item:hover { background: #f8f9fa; }
+  .order-item.active { background: var(--teal-p); border-left: 3px solid var(--teal); }
+
+  .order-top { display: flex; justify-content: space-between; align-items: center; margin-bottom: 4px; }
+  .order-oid { font-size: 13px; font-weight: 800; color: var(--ink); }
+  .order-time { font-size: 11px; color: var(--muted); }
+  .order-layer { font-size: 12px; color: var(--muted); }
+  .order-user { font-size: 12px; color: var(--teal-d); font-weight: 600; }
+
+  .spill { padding: 3px 8px; border-radius: 20px; font-size: 10px; font-weight: 700; }
+
+  .flag-badge {
+    display: inline-flex; align-items: center; gap: 3px;
+    background: #fff1f0; color: #cf1322;
+    border-radius: 6px;
+    padding: 2px 7px;
+    font-size: 10px; font-weight: 700;
+    margin-top: 4px;
+  }
+
+  /* ── RIGHT: Chat + Controls ── */
+  .main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    overflow: hidden;
+  }
+
+  .chat-header {
+    background: #fff;
+    border-bottom: 1px solid var(--border);
+    padding: 0 20px;
+    height: 58px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    flex-shrink: 0;
+  }
+
+  .chat-info { flex: 1; }
+  .chat-oid { font-size: 14px; font-weight: 800; color: var(--ink); }
+  .chat-sub { font-size: 12px; color: var(--muted); }
+
+  /* Assign panel */
+  .assign-panel {
+    background: #fff;
+    border-bottom: 1px solid var(--border);
+    padding: 10px 20px;
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    flex-shrink: 0;
+    flex-wrap: wrap;
+  }
+
+  .assign-label { font-size: 12px; font-weight: 700; color: var(--muted); }
+
+  .assign-select {
+    padding: 7px 12px;
+    border: 1.5px solid var(--border);
+    border-radius: 8px;
+    font-family: inherit;
+    font-size: 13px;
+    outline: none;
+    transition: border-color .15s;
+    cursor: pointer;
+    flex: 1; min-width: 160px;
+  }
+  .assign-select:focus { border-color: var(--teal); }
+
+  .assign-btn {
+    padding: 7px 18px;
+    background: var(--teal-d);
+    color: #fff;
+    border: none;
+    border-radius: 8px;
+    font-size: 13px;
+    font-weight: 700;
+    cursor: pointer;
+    font-family: inherit;
+    transition: background .15s;
+    white-space: nowrap;
+  }
+  .assign-btn:hover { background: var(--teal); }
+
+  .status-change {
+    display: flex;
+    gap: 6px;
+    margin-left: auto;
+  }
+
+  .sc-btn {
+    padding: 5px 12px;
+    border-radius: 7px;
+    border: 1px solid;
+    font-size: 11px;
+    font-weight: 700;
+    cursor: pointer;
+    font-family: inherit;
+    transition: background .15s;
+  }
+  .sc-btn.cancel { background: #fff1f0; border-color: #fca5a5; color: #b91c1c; }
+  .sc-btn.done   { background: #f0fdf4; border-color: #a7f3d0; color: #166534; }
+  .sc-btn:hover  { filter: brightness(.95); }
+
+  /* Messages */
+  .messages {
+    flex: 1;
+    overflow-y: auto;
+    padding: 16px 20px;
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+  }
+
+  .msg-group { display: flex; flex-direction: column; gap: 2px; }
+  .msg-group.me { align-items: flex-end; }
+  .msg-group.other { align-items: flex-start; }
+  .msg-group.system { align-items: center; }
+
+  .msg-sender { font-size: 11px; font-weight: 700; color: var(--muted); margin-bottom: 3px; padding: 0 4px; }
+
+  .bubble {
+    max-width: 66%;
+    padding: 10px 14px;
+    border-radius: 16px;
+    font-size: 14px;
+    line-height: 1.5;
+    word-break: break-word;
+  }
+
+  .me .bubble { background: #2563eb; color: #fff; border-bottom-right-radius: 4px; }
+  .other .bubble { background: #fff; color: var(--ink); border: 1px solid var(--border); border-bottom-left-radius: 4px; }
+  .user-bubble { border-left: 2px solid var(--teal) !important; }
+  .kurir-bubble { border-left: 2px solid var(--amber) !important; }
+  .system .bubble { background: #fffbeb; color: #92400e; border: 1px solid #fde68a; border-radius: 10px; font-size: 12px; max-width: 90%; text-align: center; padding: 7px 14px; }
+  .bubble.flagged { background: #fff1f0 !important; border-color: #fca5a5 !important; }
+  .msg-time { font-size: 10px; color: var(--muted); margin-top: 2px; padding: 0 4px; }
+
+  .input-area {
+    background: #fff;
+    border-top: 1px solid var(--border);
+    padding: 12px 20px;
+    display: flex;
+    align-items: flex-end;
+    gap: 10px;
+    flex-shrink: 0;
+  }
+
+  .msg-input {
+    flex: 1;
+    min-height: 42px; max-height: 100px;
+    padding: 10px 14px;
+    border: 1.5px solid var(--border);
+    border-radius: 12px;
+    font-family: inherit;
+    font-size: 14px;
+    resize: none; outline: none; line-height: 1.4;
+    transition: border-color .15s;
+  }
+  .msg-input:focus { border-color: #2563eb; }
+
+  .send-btn {
+    width: 42px; height: 42px;
+    background: #2563eb;
+    border: none; border-radius: 12px;
+    cursor: pointer; display: flex; align-items: center; justify-content: center;
+    transition: background .15s, transform .1s;
+  }
+  .send-btn:hover { background: #1d4ed8; }
+  .send-btn:active { transform: scale(.94); }
+  .send-btn svg { width: 18px; height: 18px; fill: #fff; }
+
+  .empty-main {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    color: var(--muted);
+    gap: 10px;
+    font-size: 14px;
+  }
+  .empty-main .big { font-size: 44px; }
+
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .spin { display: inline-block; animation: spin 1s linear infinite; }
+
+  /* Modal: create order */
+  .modal-overlay {
+    position: fixed; inset: 0;
+    background: rgba(0,0,0,.4);
+    display: flex; align-items: center; justify-content: center;
+    z-index: 100;
+  }
+  .modal {
+    background: #fff;
+    border-radius: 20px;
+    padding: 28px 28px 24px;
+    width: 100%; max-width: 400px;
+    box-shadow: 0 20px 60px rgba(0,0,0,.15);
+  }
+  .modal h3 { font-size: 18px; font-weight: 800; color: var(--ink); margin-bottom: 18px; }
+  .modal label { display: block; font-size: 12px; font-weight: 700; color: var(--muted); text-transform: uppercase; letter-spacing: .4px; margin-bottom: 5px; }
+  .modal input, .modal select, .modal textarea {
+    width: 100%; padding: 11px 14px;
+    border: 1.5px solid var(--border); border-radius: 9px;
+    font-family: inherit; font-size: 14px; color: var(--ink);
+    margin-bottom: 14px; outline: none; transition: border-color .15s;
+  }
+  .modal input:focus, .modal select:focus, .modal textarea:focus { border-color: var(--teal); }
+  .modal textarea { resize: vertical; min-height: 70px; }
+  .modal-btns { display: flex; gap: 10px; margin-top: 4px; }
+  .modal-cancel { flex: 1; padding: 11px; border: 1.5px solid var(--border); background: #fff; border-radius: 9px; cursor: pointer; font-family: inherit; font-size: 14px; font-weight: 700; color: var(--muted); }
+  .modal-ok { flex: 2; padding: 11px; background: var(--teal-d); color: #fff; border: none; border-radius: 9px; cursor: pointer; font-family: inherit; font-size: 14px; font-weight: 700; transition: background .15s; }
+  .modal-ok:hover { background: var(--teal); }
+</style>
+</head>
+<body>
+
+<!-- TOP BAR -->
+<div class="topbar">
+  <div class="topbar-logo">
+    ⚙️ Admin Nitip Tuban
+    <span>Dashboard</span>
+  </div>
+  <div class="topbar-stat" id="stat-pending">… pending</div>
+  <div class="topbar-stat" id="stat-active">… aktif</div>
+  <button class="topbar-logout" onclick="signOut()">Keluar</button>
+</div>
+
+<div class="layout">
+  <!-- SIDEBAR: all orders -->
+  <div class="sidebar">
+    <div class="sidebar-head">
+      <span class="sidebar-title">Semua Order</span>
+      <div class="filter-tabs">
+        <button class="ftab active" onclick="setFilter('all', this)">Semua</button>
+        <button class="ftab" onclick="setFilter('pending', this)">Pending</button>
+        <button class="ftab" onclick="setFilter('active', this)">Aktif</button>
+      </div>
+    </div>
+    <div class="order-list" id="order-list">
+      <div style="padding:20px;text-align:center;color:var(--muted);font-size:13px">
+        <span class="spin">⟳</span> Memuat…
+      </div>
+    </div>
+  </div>
+
+  <!-- MAIN: chat + controls -->
+  <div class="main" id="main">
+    <div class="chat-header">
+      <div class="chat-info">
+        <div class="chat-oid" id="chat-oid">Pilih order</div>
+        <div class="chat-sub" id="chat-sub">—</div>
+      </div>
+      <div id="header-actions"></div>
+    </div>
+
+    <div class="assign-panel" id="assign-panel" style="display:none">
+      <span class="assign-label">Assign Kurir:</span>
+      <select class="assign-select" id="kurir-select">
+        <option value="">— Pilih Kurir —</option>
+      </select>
+      <button class="assign-btn" onclick="doAssign()">Assign</button>
+      <div class="status-change">
+        <button class="sc-btn done" onclick="doStatus('done')">✓ Selesai</button>
+        <button class="sc-btn cancel" onclick="doStatus('cancel')">✕ Batal</button>
+      </div>
+    </div>
+
+    <div class="messages" id="messages">
+      <div class="empty-main">
+        <div class="big">📋</div>
+        <div>Pilih order di kiri</div>
+        <div style="font-size:12px">untuk lihat chat dan assign kurir</div>
+      </div>
+    </div>
+
+    <div class="input-area" id="input-area" style="display:none">
+      <textarea class="msg-input" id="msg-input"
+        placeholder="Kirim pesan sebagai Admin (terlihat oleh semua pihak)…"
+        rows="1" onkeydown="handleKey(event)" oninput="autoResize(this)"></textarea>
+      <button class="send-btn" onclick="sendMsg()">
+        <svg viewBox="0 0 24 24"><path d="M2.01 21L23 12 2.01 3 2 10l15 2-15 2z"/></svg>
+      </button>
+    </div>
+  </div>
+</div>
+
+<script>
+let _profile = null;
+let _orders  = [];
+let _kurirs  = [];
+let _filter  = 'all';
+let _activeOrderId = null;
+let _sub = null;
+
+async function init() {
+  const session = await getSession();
+  if (!session) { location.href = 'index.html'; return; }
+
+  _profile = await getProfile(session.user.id);
+  if (!_profile || _profile.role !== 'admin') { await signOut(); return; }
+
+  _kurirs = await fetchKurirList();
+  populateKurirSelect();
+
+  await loadOrders();
+
+  // Realtime: refresh list on order changes
+  _sb.channel('admin-orders')
+    .on('postgres_changes', { event: '*', schema: 'public', table: 'orders' }, () => loadOrders())
+    .subscribe();
+}
+
+function populateKurirSelect() {
+  const sel = document.getElementById('kurir-select');
+  sel.innerHTML = '<option value="">— Pilih Kurir —</option>';
+  _kurirs.forEach(k => {
+    const opt = document.createElement('option');
+    opt.value = k.id;
+    opt.textContent = `${k.name} (${k.kurir_code ?? '—'})`;
+    sel.appendChild(opt);
+  });
+}
+
+async function loadOrders() {
+  _orders = await fetchAllOrders();
+
+  const pending = _orders.filter(o => o.status === 'pending').length;
+  const active  = _orders.filter(o => o.status === 'active').length;
+  document.getElementById('stat-pending').textContent = `${pending} pending`;
+  document.getElementById('stat-active').textContent  = `${active} aktif`;
+
+  renderList();
+}
+
+function setFilter(f, el) {
+  _filter = f;
+  document.querySelectorAll('.ftab').forEach(b => b.classList.remove('active'));
+  el.classList.add('active');
+  renderList();
+}
+
+function renderList() {
+  const filtered = _filter === 'all' ? _orders : _orders.filter(o => o.status === _filter);
+  const list = document.getElementById('order-list');
+
+  if (!filtered.length) {
+    list.innerHTML = `<div style="padding:24px;text-align:center;color:var(--muted);font-size:13px">Tidak ada order ${_filter === 'all' ? '' : _filter}.</div>`;
+    return;
+  }
+
+  list.innerHTML = filtered.map(o => {
+    const badge = statusBadge(o.status);
+    const hasFlagged = false; // could query flagged count
+    const isActive = o.id === _activeOrderId;
+    const kurirName = o.kurir?.name ?? '—';
+    return `
+      <div class="order-item ${isActive ? 'active' : ''}" onclick="openOrder('${o.id}')">
+        <div class="order-top">
+          <span class="order-oid">#${shortId(o.id)}</span>
+          <span class="spill" style="background:${badge.color}22;color:${badge.color}">${badge.label}</span>
+        </div>
+        <div class="order-layer">${o.layanan}</div>
+        <div class="order-user">👤 ${o.user?.name ?? 'User'} · 🛵 ${kurirName}</div>
+        <div class="order-time">${formatDate(o.created_at)}</div>
+      </div>`;
+  }).join('');
+}
+
+async function openOrder(orderId) {
+  _activeOrderId = orderId;
+  renderList();
+
+  const order = _orders.find(o => o.id === orderId);
+  const badge = statusBadge(order?.status);
+
+  document.getElementById('chat-oid').textContent = `Order #${shortId(orderId)} — ${order?.layanan ?? ''}`;
+  document.getElementById('chat-sub').textContent =
+    `User: ${order?.user?.name ?? '—'} · Kurir: ${order?.kurir?.name ?? 'Belum di-assign'} · Status: ${badge.label}`;
+
+  document.getElementById('assign-panel').style.display = 'flex';
+  document.getElementById('input-area').style.display   = 'flex';
+
+  // Pre-select current kurir
+  const ks = document.getElementById('kurir-select');
+  ks.value = order?.kurir_id ?? '';
+
+  if (_sub) { await _sb.removeChannel(_sub); _sub = null; }
+  await loadMessages();
+
+  _sub = subscribeMessages(orderId, (msg) => {
+    if (document.querySelector(`[data-msg-id="${msg.id}"]`)) return;
+    appendMsg(msg);
+  });
+}
+
+async function loadMessages() {
+  const msgs = await fetchMessages(_activeOrderId);
+  const container = document.getElementById('messages');
+  container.innerHTML = '';
+  if (!msgs.length) {
+    container.innerHTML = `<div class="empty-main"><div class="big">💬</div><div>Belum ada pesan di order ini.</div></div>`;
+    return;
+  }
+  msgs.forEach(m => appendMsg(m));
+  container.scrollTop = container.scrollHeight;
+}
+
+function appendMsg(msg) {
+  const container = document.getElementById('messages');
+  container.querySelector('.empty-main')?.remove();
+
+  const isMe = msg.sender_id === _profile.id;
+  const isSystem = msg.role === 'system';
+  const groupClass = isSystem ? 'system' : isMe ? 'me' : 'other';
+
+  const roleLabel = {
+    user: '🙋 User', kurir: '🛵 Kurir', admin: '⚙️ Admin', system: 'Sistem'
+  };
+
+  let bClass = 'bubble';
+  if (msg.is_flagged) bClass += ' flagged';
+  if (!isMe && !isSystem) {
+    if (msg.role === 'user') bClass += ' user-bubble';
+    if (msg.role === 'kurir') bClass += ' kurir-bubble';
+  }
+
+  const el = document.createElement('div');
+  el.className = `msg-group ${groupClass}`;
+  el.dataset.msgId = msg.id;
+  el.innerHTML = `
+    ${!isMe && !isSystem ? `<div class="msg-sender">${roleLabel[msg.role] ?? msg.role}</div>` : ''}
+    <div class="${bClass}">
+      ${escHtml(msg.content)}
+      ${msg.is_flagged ? `<br><small style="color:#ef4444;font-size:10px">⚠️ Kontak terdeteksi & disembunyikan</small>` : ''}
+    </div>
+    <div class="msg-time">${formatTime(msg.created_at)}</div>
+  `;
+  container.appendChild(el);
+  container.scrollTop = container.scrollHeight;
+}
+
+async function doAssign() {
+  const kurirId = document.getElementById('kurir-select').value;
+  if (!kurirId || !_activeOrderId) return;
+
+  await assignKurir(_activeOrderId, kurirId);
+  const kurir = _kurirs.find(k => k.id === kurirId);
+
+  // Kirim pesan sistem
+  await sendMessage(_activeOrderId, _profile.id, 'system',
+    `✅ Admin menugaskan ${kurir?.name ?? 'kurir'} untuk menangani order ini.`);
+
+  await loadOrders();
+  openOrder(_activeOrderId);
+}
+
+async function doStatus(status) {
+  if (!_activeOrderId) return;
+  const label = status === 'done' ? 'selesai' : 'dibatalkan';
+  if (!confirm(`Tandai order ini sebagai ${label}?`)) return;
+
+  await updateOrderStatus(_activeOrderId, status);
+  await sendMessage(_activeOrderId, _profile.id, 'system',
+    `📋 Admin menandai order ini sebagai ${status === 'done' ? 'SELESAI ✅' : 'DIBATALKAN ❌'}.`);
+
+  await loadOrders();
+  openOrder(_activeOrderId);
+}
+
+async function sendMsg() {
+  const input = document.getElementById('msg-input');
+  const text = input.value.trim();
+  if (!text || !_activeOrderId) return;
+  input.value = '';
+  autoResize(input);
+  await sendMessage(_activeOrderId, _profile.id, 'admin', text);
+}
+
+function handleKey(e) {
+  if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); sendMsg(); }
+}
+
+function autoResize(el) {
+  el.style.height = 'auto';
+  el.style.height = Math.min(el.scrollHeight, 100) + 'px';
+}
+
+function escHtml(s) {
+  return s.replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/\n/g,'<br>');
+}
+
+init();
+</script>
+</body>
+</html>
